@@ -16,8 +16,7 @@ timezone:
 
 title: AlphaSploit # the main title
 
-tagline: A self-taught Cybersecurity Researcher and born at very little age😜
-Red Team | Penetration Tester | Founder & CEO @AlphaSploit # it will display as the sub-title
+tagline: A self-taught Cybersecurity Researcher and born at very little age😜 Red Team | Penetration Tester | Founder & CEO @AlphaSploit # it will display as the sub-title
 
 description: >- # used by seo meta and the atom feed
   A minimal, responsive and feature-rich Jekyll theme for technical writing.
